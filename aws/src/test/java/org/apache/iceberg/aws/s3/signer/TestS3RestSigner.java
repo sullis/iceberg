@@ -49,6 +49,8 @@ import software.amazon.awssdk.auth.signer.internal.Aws4SignerRequestParams;
 import software.amazon.awssdk.auth.signer.internal.SignerConstant;
 import software.amazon.awssdk.auth.signer.params.Aws4PresignerParams;
 import software.amazon.awssdk.auth.signer.params.AwsS3V4SignerParams;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.SdkResponse;
 import software.amazon.awssdk.core.checksums.SdkChecksum;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
@@ -61,6 +63,7 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -179,15 +182,15 @@ public class TestS3RestSigner {
 
   @Test
   public void validateGetObject() {
-    s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("random/key").build());
+    assertSuccess(s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("random/key").build()));
     // signer caching should kick in when repeating the same request
-    s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("random/key").build());
+    assertSuccess(s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("random/key").build()));
   }
 
   @Test
   public void validatePutObject() {
-    s3.putObject(
-        PutObjectRequest.builder().bucket(BUCKET).key("some/key").build(), Paths.get("/etc/hosts"));
+    assertSuccess(s3.putObject(
+        PutObjectRequest.builder().bucket(BUCKET).key("some/key").build(), Paths.get("/etc/hosts")));
   }
 
   @Test
@@ -203,25 +206,25 @@ public class TestS3RestSigner {
                 ObjectIdentifier.builder().key("some/key2").build())
             .build();
 
-    s3.deleteObjects(DeleteObjectsRequest.builder().bucket(BUCKET).delete(objectsToDelete).build());
+    assertSuccess(s3.deleteObjects(DeleteObjectsRequest.builder().bucket(BUCKET).delete(objectsToDelete).build()));
   }
 
   @Test
   public void validateListPrefix() {
-    s3.listObjectsV2(ListObjectsV2Request.builder().bucket(BUCKET).prefix("some/prefix/").build());
+    assertSuccess(s3.listObjectsV2(ListObjectsV2Request.builder().bucket(BUCKET).prefix("some/prefix/").build()));
   }
 
   @Test
   public void validateEncodedGetObject() {
-    s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("encoded/key=value/file").build());
+    assertSuccess(s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("encoded/key=value/file").build()));
     // signer caching should kick in when repeating the same request
-    s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("encoded/key=value/file").build());
+    assertSuccess(s3.getObject(GetObjectRequest.builder().bucket(BUCKET).key("encoded/key=value/file").build()));
   }
 
   @Test
   public void validatedCreateMultiPartUpload() {
-    s3.createMultipartUpload(
-        CreateMultipartUploadRequest.builder().bucket(BUCKET).key("some/multipart-key").build());
+    assertSuccess(s3.createMultipartUpload(
+        CreateMultipartUploadRequest.builder().bucket(BUCKET).key("some/multipart-key").build()));
   }
 
   @AfterEach
@@ -238,14 +241,29 @@ public class TestS3RestSigner {
                     .key("some/multipart-key")
                     .build())
             .uploadId();
-    s3.uploadPart(
+    assertSuccess(s3.uploadPart(
         UploadPartRequest.builder()
             .bucket(BUCKET)
             .key("some/multipart-key")
             .uploadId(multipartUploadId)
             .partNumber(1)
             .build(),
-        RequestBody.fromString("content"));
+        RequestBody.fromString("content")));
+  }
+
+  private static void assertSuccess(final SdkResponse... sdkResponses) {
+    for (SdkResponse response : sdkResponses) {
+      assertThat(response.sdkHttpResponse().isSuccessful())
+              .isTrue()
+              .describedAs(response.getClass().getName() + ": statusCode=" + response.sdkHttpResponse().statusCode());
+    }
+  }
+
+  private static void assertSuccess(ResponseInputStream<GetObjectResponse> responseInputStream) {
+    assertThat(responseInputStream).isNotNull();
+    GetObjectResponse response = responseInputStream.response();
+    assertSuccess(response);
+    assertThat(response.lastModified()).isNotNull();
   }
 
   /**
