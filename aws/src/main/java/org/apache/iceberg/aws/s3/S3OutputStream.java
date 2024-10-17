@@ -434,6 +434,10 @@ class S3OutputStream extends PositionOutputStream {
         requestBuilder.storageClass(s3FileIOProperties.writeStorageClass());
       }
 
+      if (s3FileIOProperties.isS3ConditionalWriteEnabled()) {
+        requestBuilder.ifNoneMatch("*");
+      }
+
       if (isChecksumEnabled) {
         requestBuilder.contentMD5(BinaryUtils.toBase64(completeMessageDigest.digest()));
       }

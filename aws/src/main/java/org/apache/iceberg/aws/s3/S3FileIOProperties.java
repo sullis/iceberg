@@ -85,6 +85,10 @@ public class S3FileIOProperties implements Serializable {
 
   public static final boolean S3_ACCESS_GRANTS_FALLBACK_TO_IAM_ENABLED_DEFAULT = false;
 
+  public static final String S3_CONDITIONAL_WRITE_ENABLED = "s3.conditional.write";
+
+  public static final boolean S3_CONDITIONAL_WRITE_ENABLED_DEFAULT = false;
+
   /**
    * Type of S3 Server side encryption used, default to {@link S3FileIOProperties#SSE_TYPE_NONE}.
    *
@@ -435,6 +439,7 @@ public class S3FileIOProperties implements Serializable {
   private final String secretAccessKey;
   private final String sessionToken;
   private boolean isS3AccessGrantsEnabled;
+  private boolean isS3ConditionalWriteEnabled;
   private boolean isS3AccessGrantsFallbackToIamEnabled;
   private int multipartUploadThreads;
   private int multiPartSize;
@@ -495,6 +500,7 @@ public class S3FileIOProperties implements Serializable {
     this.isRemoteSigningEnabled = REMOTE_SIGNING_ENABLED_DEFAULT;
     this.isS3AccessGrantsEnabled = S3_ACCESS_GRANTS_ENABLED_DEFAULT;
     this.isS3AccessGrantsFallbackToIamEnabled = S3_ACCESS_GRANTS_FALLBACK_TO_IAM_ENABLED_DEFAULT;
+    this.isS3ConditionalWriteEnabled = S3_CONDITIONAL_WRITE_ENABLED_DEFAULT;
     this.s3RetryNumRetries = S3_RETRY_NUM_RETRIES_DEFAULT;
     this.s3RetryMinWaitMs = S3_RETRY_MIN_WAIT_MS_DEFAULT;
     this.s3RetryMaxWaitMs = S3_RETRY_MAX_WAIT_MS_DEFAULT;
@@ -599,6 +605,9 @@ public class S3FileIOProperties implements Serializable {
             properties,
             S3_ACCESS_GRANTS_FALLBACK_TO_IAM_ENABLED,
             S3_ACCESS_GRANTS_FALLBACK_TO_IAM_ENABLED_DEFAULT);
+    this.isS3ConditionalWriteEnabled =
+        PropertyUtil.propertyAsBoolean(
+            properties, S3_CONDITIONAL_WRITE_ENABLED, S3_CONDITIONAL_WRITE_ENABLED_DEFAULT);
     this.s3RetryNumRetries =
         PropertyUtil.propertyAsInt(properties, S3_RETRY_NUM_RETRIES, S3_RETRY_NUM_RETRIES_DEFAULT);
     this.s3RetryMinWaitMs =
@@ -799,6 +808,14 @@ public class S3FileIOProperties implements Serializable {
 
   public void setS3AccessGrantsEnabled(boolean s3AccessGrantsEnabled) {
     this.isS3AccessGrantsEnabled = s3AccessGrantsEnabled;
+  }
+
+  public boolean isS3ConditionalWriteEnabled() {
+    return isS3ConditionalWriteEnabled;
+  }
+
+  public void setS3ConditionalWriteEnabled(boolean s3ConditionalWriteEnabled) {
+    this.isS3ConditionalWriteEnabled = s3ConditionalWriteEnabled;
   }
 
   public boolean isS3AccessGrantsFallbackToIamEnabled() {
