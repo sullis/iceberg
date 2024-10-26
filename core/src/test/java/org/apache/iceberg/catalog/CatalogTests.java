@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.setMaxStackTraceElementsDisplayed;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TestHelpers;
@@ -56,6 +58,8 @@ import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
@@ -2636,7 +2640,9 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
     originalTable.newFastAppend().appendFile(FILE_C).commit();
 
     TableOperations ops = ((BaseTable) originalTable).operations();
-    String metadataLocation = ops.current().metadataFileLocation();
+    TableMetadata metadata = ops.current();
+    validateMetadata(ops.io(), metadata);
+    String metadataLocation = metadata.metadataFileLocation();
 
     catalog.dropTable(TABLE, false /* do not purge */);
 
@@ -2673,6 +2679,22 @@ public abstract class CatalogTests<C extends Catalog & SupportsNamespaces> {
     assertThat(catalog.loadTable(TABLE)).isNotNull();
     assertThat(catalog.dropTable(TABLE)).isTrue();
     assertThat(catalog.tableExists(TABLE)).isFalse();
+  }
+
+  private void validateMetadata(FileIO io, TableMetadata metadata) {
+    assertThat(metadata.properties())
+        .containsKey("created-at")
+        .containsEntry("write.parquet.compression-codec", "zstd");
+
+    try {
+      InputFile file = io.newInputFile(metadata.metadataFileLocation());
+      assertThat(file.exists()).isTrue();
+      assertThat(file.getLength()).isGreaterThan(0);
+      String contents = new String(file.newStream().readAllBytes(), StandardCharsets.UTF_8);
+      assertThat(contents).startsWith("{").endsWith("}");
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
   @Test
